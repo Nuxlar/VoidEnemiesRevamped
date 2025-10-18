@@ -1,8 +1,8 @@
 ﻿{
-	"name": "NewMod",
+	"name": "VoidEnemiesRevamped",
 	"version_number": "1.0.0",
 	"website_url": "",
-	"description": "Template",
+	"description": "Changes to the Void Barnacle, Reaver, Jailer, and Devastator",
 	"dependencies": [
 		"bbepis-BepInExPack-5.4.2117",
 		"RiskofThunder-HookGenPatcher-1.2.4"
