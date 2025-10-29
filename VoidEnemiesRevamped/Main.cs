@@ -2,12 +2,16 @@ using BepInEx;
 using EntityStates.NullifierMonster;
 using EntityStates.VoidJailer;
 using EntityStates.VoidJailer.Weapon;
+using R2API;
 using RoR2;
 using RoR2.ContentManagement;
+using RoR2.Skills;
 using System.Diagnostics;
 using System.IO;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
+using VoidEnemiesRevamped.NewEntityStates.Jailer;
+using VoidEnemiesRevamped.NewEntityStates.Reaver;
 
 namespace VoidEnemiesRevamped
 {
@@ -22,15 +26,15 @@ namespace VoidEnemiesRevamped
     internal static Main Instance { get; private set; }
     public static string PluginDirectory { get; private set; }
 
-    public static BuffDef tetherDebuff;
-    public static BuffDef tetherDebuff2;
 
     public void Awake()
     {
       Instance = this;
 
       Log.Init(Logger);
+      AddContent();
       LoadAssets();
+      TweakAssets();
 
       // PluginDirectory = Path.GetDirectoryName(Info.Location);
 
@@ -38,10 +42,6 @@ namespace VoidEnemiesRevamped
       // WhiteCannonProjectile ProjectileImpactExplosion childrenProjectilePrefab
       // BlackCannonProjectile remove MegacrabProjectileController
       // Need to rewrite portal bomb to be predictive like the titan fist
-      On.EntityStates.VoidJailer.Weapon.Capture2.OnEnter += Glorp;
-      On.EntityStates.VoidJailer.Capture.OnEnter += Glorp4;
-      // On.EntityStates.NullifierMonster.AimPortalBomb.RaycastToFloor += Glorp2;
-      // On.EntityStates.NullifierMonster.FirePortalBomb.OnEnter += Glorp3;
     }
 
     private void Glorp(On.EntityStates.VoidJailer.Weapon.Capture2.orig_OnEnter orig, Capture2 self)
@@ -51,41 +51,32 @@ namespace VoidEnemiesRevamped
     private void Glorp4(On.EntityStates.VoidJailer.Capture.orig_OnEnter orig, Capture self)
     {
       Capture.tetherReelSpeed = 0; // 50 orig
-      Capture.innerRangeDebuff = tetherDebuff;
-      Capture.tetherDebuff = tetherDebuff;
 
       // Capture.innerRangeDebuffDuration = 1f; // 5f orig
       self.duration = 5f; // 0.2 orig
       orig(self);
     }
 
-    private Vector3? Glorp2(On.EntityStates.NullifierMonster.AimPortalBomb.orig_RaycastToFloor orig, AimPortalBomb self, Vector3 position)
+    private void AddContent()
     {
-      return position;
+      ContentAddition.AddEntityState<ChargeCaptureNux>(out _);
+      ContentAddition.AddEntityState<PortalBombNux>(out _);
     }
 
     private static void LoadAssets()
     {
-      AssetReferenceT<BuffDef> tetherDebuffRef = new AssetReferenceT<BuffDef>(RoR2BepInExPack.GameAssetPathsBetter.RoR2_DLC1_VoidJailer.bdJailerSlow_asset);
-      AssetAsyncReferenceManager<BuffDef>.LoadAsset(tetherDebuffRef).Completed += (x) => tetherDebuff = x.Result;
-
       AssetReferenceT<BuffDef> tetherDebuff2Ref = new AssetReferenceT<BuffDef>(RoR2BepInExPack.GameAssetPathsBetter.RoR2_DLC1_VoidJailer.bdJailerSlow_asset);
-      AssetAsyncReferenceManager<BuffDef>.LoadAsset(tetherDebuff2Ref).Completed += (x) => tetherDebuff = x.Result;
+      //  AssetAsyncReferenceManager<BuffDef>.LoadAsset(tetherDebuff2Ref).Completed += (x) => tetherDebuff = x.Result;
     }
 
-    /*
-        private static void TweakAssets()
-        {
-          Example for how to edit an asset once it finishes loading
-          AssetAsyncReferenceManager<GameObject>.LoadAsset(new AssetReferenceT<Material>(RoR2BepInExPack.GameAssetPaths.RoR2_DLC2_Items_LowerPricedChests.PickupSaleStar_prefab)).Completed += delegate (AsyncOperationHandle<GameObject> obj)
-          {
-            MeshCollider collider = obj.Result.transform.find("SaleStar")?.GetComponent<MeshCollider>();
-            if (collider)
-            {
-              collider.convex = true;
-            }
-          };
-        }
-    */
+    private static void TweakAssets()
+    {
+      AssetReferenceT<SkillDef> reaverSkillRef = new AssetReferenceT<SkillDef>(RoR2BepInExPack.GameAssetPathsBetter.RoR2_Base_Nullifier.FireNullifier_asset);
+      AssetAsyncReferenceManager<SkillDef>.LoadAsset(reaverSkillRef).Completed += (x) =>
+      {
+        SkillDef portalBombSkill = x.Result;
+        portalBombSkill.activationState = new EntityStates.SerializableEntityStateType(typeof(PortalBombNux));
+      };
+    }
   }
 }
