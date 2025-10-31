@@ -9,14 +9,16 @@ namespace VoidEnemiesRevamped.NewEntityStates.Reaver;
 public class PortalBombNux : EntityStates.BaseState
 {
     public static int portalBombCount = 3;
-    public static float minDistanceBetweenBombs = 10f;
+    public static float minDistanceBetweenBombs = 8f;
+    public static float radius = 5f;
     private HurtBox targetHurtBox;
     private float trackingDuration = 0.5f;
     private float elapsedTime;
     private PortalBombNux.Predictor predictor;
     private Vector3 predictedTargetPosition;
-    private Vector3 lastBombPosition = Vector3.zero;
     private int bombsFired = 0;
+    private CharacterBody targetBody;
+    private Vector3 targetVelocity;
 
     public override void OnEnter()
     {
@@ -29,12 +31,20 @@ public class PortalBombNux : EntityStates.BaseState
         bullseyeSearch.maxDistanceFilter = FirePortalBomb.maxDistance;
         bullseyeSearch.teamMaskFilter = TeamMask.GetEnemyTeams(this.GetTeam());
         bullseyeSearch.sortMode = BullseyeSearch.SortMode.DistanceAndAngle;
+        bullseyeSearch.filterByLoS = false;
         bullseyeSearch.RefreshCandidates();
         this.targetHurtBox = bullseyeSearch.GetResults().FirstOrDefault<HurtBox>();
         if ((bool)this.targetHurtBox)
         {
             this.predictor = new PortalBombNux.Predictor(this.transform);
             this.predictor.SetTargetTransform(this.targetHurtBox.transform);
+            this.targetBody = this.targetHurtBox.healthComponent.body;
+            this.targetVelocity = targetBody.characterMotor.velocity;
+            if (!this.targetBody.hasAuthority)
+            {
+                //Less accurate, but it works online.
+                this.targetVelocity = (targetBody.transform.position - targetBody.previousPosition) / Time.fixedDeltaTime;
+            }
         }
         else
             this.outer.SetNextStateToMain();
@@ -56,17 +66,17 @@ public class PortalBombNux : EntityStates.BaseState
             this.predictor.GetPredictedTargetPosition(this.trackingDuration, out this.predictedTargetPosition);
 
         Vector3 point = this.predictedTargetPosition;
-        Debug.LogWarning("initial" + point);
-        // TODO: fix point not changing between bombs
+
+        // Raycast to floor if target is moving down to prevent bombs from spawning in the ground
+        if (this.targetBody.characterMotor && !targetBody.characterMotor.isGrounded && this.targetVelocity.y > 0f)
+            point = RaycastToFloor(this.predictedTargetPosition);
+
         if (this.bombsFired < PortalBombNux.portalBombCount)
         {
-            Debug.LogWarning(this.bombsFired);
-            Debug.LogWarning("pre" + point);
-            Vector3 vector3 = this.predictedTargetPosition - this.lastBombPosition;
-            if (this.bombsFired > 0 && (double)vector3.sqrMagnitude < (double)PortalBombNux.minDistanceBetweenBombs * PortalBombNux.minDistanceBetweenBombs)
-                point += vector3.normalized * PortalBombNux.minDistanceBetweenBombs;
-            Debug.LogWarning("post" + point);
-            this.lastBombPosition = point;
+            if (this.bombsFired > 0)
+            {
+                point += PortalBombNux.GetPointOnUnitSphereCap();
+            }
             this.FireBomb(point);
             EffectManager.SimpleMuzzleFlash(FirePortalBomb.muzzleflashEffectPrefab, this.gameObject, FirePortalBomb.muzzleString, true);
             this.bombsFired++;
@@ -75,6 +85,16 @@ public class PortalBombNux : EntityStates.BaseState
         if (this.bombsFired < PortalBombNux.portalBombCount)
             return;
         this.outer.SetNextStateToMain();
+    }
+
+    public static Vector3 GetPointOnUnitSphereCap()
+    {
+        Quaternion targetDirection = Quaternion.LookRotation(Vector3.up);
+        float angle = 180f;
+        float angleInRad = Random.Range(0.0f, angle) * Mathf.Deg2Rad;
+        Vector2 pointOnCircle = Random.insideUnitCircle.normalized * PortalBombNux.minDistanceBetweenBombs * Mathf.Sin(angleInRad);
+        Vector3 v = new Vector3(pointOnCircle.x, pointOnCircle.y, Mathf.Cos(angleInRad));
+        return targetDirection * v;
     }
 
     private void FireBomb(Vector3 targetPos)
@@ -89,6 +109,12 @@ public class PortalBombNux : EntityStates.BaseState
             force = FirePortalBomb.force,
             crit = this.characterBody.RollCrit()
         });
+    }
+
+    private Vector3 RaycastToFloor(Vector3 position)
+    {
+        RaycastHit hitInfo;
+        return Physics.Raycast(new Ray(position, Vector3.down), out hitInfo, 500f, (int)LayerIndex.world.mask, QueryTriggerInteraction.Ignore) ? hitInfo.point : new Vector3();
     }
 
     private class Predictor
