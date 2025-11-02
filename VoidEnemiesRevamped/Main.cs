@@ -42,6 +42,17 @@ namespace VoidEnemiesRevamped
       // WhiteCannonProjectile ProjectileImpactExplosion childrenProjectilePrefab
       // BlackCannonProjectile remove MegacrabProjectileController
       // Need to rewrite portal bomb to be predictive like the titan fist
+
+      // reaver, jailer, devastator
+
+      On.RoR2.CharacterBody.AddTimedBuff_BuffDef_float += PreventPermaRoot;
+    }
+
+    private void PreventPermaRoot(On.RoR2.CharacterBody.orig_AddTimedBuff_BuffDef_float orig, CharacterBody self, BuffDef buffDef, float duration)
+    {
+      if (buffDef == RoR2Content.Buffs.NullifyStack && self.HasBuff(RoR2Content.Buffs.Nullified))
+        return;
+      orig(self, buffDef, duration);
     }
 
     private void Glorp(On.EntityStates.VoidJailer.Weapon.Capture2.orig_OnEnter orig, Capture2 self)
@@ -76,6 +87,30 @@ namespace VoidEnemiesRevamped
       {
         SkillDef portalBombSkill = x.Result;
         portalBombSkill.activationState = new EntityStates.SerializableEntityStateType(typeof(PortalBombNux));
+      };
+      AssetReferenceT<GameObject> reaverBodyRef = new AssetReferenceT<GameObject>(RoR2BepInExPack.GameAssetPathsBetter.RoR2_Base_Nullifier.NullifierBody_prefab);
+      AssetAsyncReferenceManager<GameObject>.LoadAsset(reaverBodyRef).Completed += (x) =>
+      {
+        GameObject reaverBody = x.Result;
+        CharacterBody cb = reaverBody.GetComponent<CharacterBody>();
+        cb.bodyFlags |= CharacterBody.BodyFlags.ImmuneToVoidDeath;
+        reaverBody.GetComponent<SetStateOnHurt>().canBeHitStunned = false;
+      };
+      AssetReferenceT<GameObject> jailerBodyRef = new AssetReferenceT<GameObject>(RoR2BepInExPack.GameAssetPathsBetter.RoR2_DLC1_VoidJailer.VoidJailerBody_prefab);
+      AssetAsyncReferenceManager<GameObject>.LoadAsset(jailerBodyRef).Completed += (x) =>
+      {
+        GameObject jailerBody = x.Result;
+        CharacterBody cb = jailerBody.GetComponent<CharacterBody>();
+        cb.bodyFlags |= CharacterBody.BodyFlags.ImmuneToVoidDeath;
+        jailerBody.GetComponent<SetStateOnHurt>().canBeHitStunned = false;
+      };
+      AssetReferenceT<GameObject> devastatorBodyRef = new AssetReferenceT<GameObject>(RoR2BepInExPack.GameAssetPathsBetter.RoR2_DLC1_VoidMegaCrab.VoidMegaCrabBody_prefab);
+      AssetAsyncReferenceManager<GameObject>.LoadAsset(devastatorBodyRef).Completed += (x) =>
+      {
+        GameObject devastatorBody = x.Result;
+        CharacterBody cb = devastatorBody.GetComponent<CharacterBody>();
+        cb.bodyFlags |= CharacterBody.BodyFlags.ImmuneToVoidDeath;
+        devastatorBody.GetComponent<SetStateOnHurt>().canBeHitStunned = false;
       };
     }
   }
